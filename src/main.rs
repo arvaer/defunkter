@@ -1,16 +1,24 @@
+mod errors;
+use errors::error;
+use scanner::*;
+
 fn run_file(filename: &str) {
     let file = std::fs::read_to_string(filename).expect("Error reading file");
-    println!("{}", file);
+    let source = file.as_str();
+    run(source);
 }
-
 fn run_prompt() {
     println!("Welcome to the Lox(rs) interpreter");
     loop {
         print!("> ");
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
-        println!("{}", input);
+        run(input.as_str());
     }
+}
+fn run(source: &str) {
+    let scanner = Scanner::new(source);
+    println!("{}", source);
 }
 
 fn main() {
