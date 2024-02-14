@@ -9,7 +9,9 @@ pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
+    keywords: Keywords
 }
+
 impl Scanner {
     pub fn new(source: &str) -> Self {
         Self {
@@ -18,19 +20,28 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            keywords: Keywords::new()
         }
     }
 
     fn is_at_end(&self) -> bool {
-        self.current > self.source.len()
+        println!("Current: {}, Source: {}", self.current, self.source.len());
+        self.current >= self.source.len()
     }
 
     fn is_digit(&self, c: char) -> bool {
         return c >= '0' && c <= '9';
     }
+    fn is_alpha(&self, c: char) -> bool {
+        return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_';
+    }
+    fn is_alphanumeric(&self, c: char) -> bool {
+        return self.is_alpha(c) || self.is_digit(c);
+    }
 
     pub fn scan_tokens(&mut self) -> Vec<Token> {
-        while self.is_at_end() {
+        while !self.is_at_end() {
+            println!("Scanning tokens");
             self.start = self.current;
             self.scan_token();
         }
@@ -40,9 +51,14 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) {
-        let c: char = self.advance();
+        let c: char = self.advance().unwrap();
+        println!("Scanning token: {}", c);
         if self.is_digit(c) {
             self.number();
+            return;
+        }
+        if self.is_alpha(c) {
+            self.identifier();
             return;
         }
 
@@ -87,7 +103,7 @@ impl Scanner {
             }
             '/' => {
                 if self.check_next('/') {
-                    while self.peek() != '\n' && !self.is_at_end() {
+                    while self.peek().unwrap() != '\n' && !self.is_at_end() {
                         let _ = self.advance();
                     }
                 } else {
@@ -97,16 +113,18 @@ impl Scanner {
             ' ' | '\r' | '\t' => (),
             '\n' => self.line += 1,
             '"' => self.string(),
+            'o' => {
+                if self.check_next('r') {
+                    self.add_token(TokenType::Or);
+                }
+            }
+
             _ => {
                 if !self.is_digit(c) {
                     let _ = (self.line, "Unexpected character.");
                 }
-            } ,
+            }
         }
-    }
-
-    fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_literal(token_type, None);
     }
 
     fn check_next(&mut self, expected: char) -> bool {
@@ -119,20 +137,22 @@ impl Scanner {
         self.current += 1;
         return true;
     }
-    fn peek(&self) -> char {
+    fn peek(&self) -> Option<char> {
         if self.is_at_end() {
-            return '\0';
+            return Some('\0');
         }
-        self.source.chars().nth(self.current).unwrap()
+        self.source.chars().nth(self.current)
     }
-    fn peek_next(&self) -> char {
-        let check_end = {
-            self.current + 1 >= self.source.len()
-        };
+    fn peek_next(&self) -> Option<char> {
+        let check_end = { self.current + 1 >= self.source.len() };
         if check_end {
-            return '\0'
+            return Some('\0');
         }
-        return self.source.chars().nth(self.current + 1).unwrap();
+        return self.source.chars().nth(self.current + 1);
+    }
+
+    fn add_token(&mut self, token_type: TokenType) {
+        self.add_token_literal(token_type, None);
     }
 
     fn add_token_literal(&mut self, token_type: TokenType, literal: Option<String>) {
@@ -147,16 +167,20 @@ impl Scanner {
             .push(Token::new(token_type, text, literal, self.line));
     }
 
-    fn advance(&mut self) -> char {
-        let c = self.source.chars().nth(self.current).unwrap();
+    fn advance(&mut self) -> Option<char> {
+        let c =  self.source.chars().nth(self.current);
+        println!("Advancing: {}", c.unwrap());
         self.current += 1;
-        c
+        return c;
     }
 
     fn string(&mut self) {
-        while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1
+        while self.peek().unwrap() != '"' && !self.is_at_end() {
+            match self.peek() {
+                Some(c) =>  if c == '\n' {
+                    self.line += 1
+                }
+                None => panic!("No character found"),
             }
             self.advance();
         }
@@ -176,14 +200,36 @@ impl Scanner {
     }
 
     fn number(&mut self) {
-        while self.is_digit(self.peek()) {
+        while self.is_digit(self.peek().unwrap()) {
             self.advance();
         }
-        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+        if self.peek().unwrap() == '.' && self.is_digit(self.peek_next().unwrap()) {
             self.advance();
-            while self.is_digit(self.peek()) { self.advance(); }
+            while self.is_digit(self.peek().unwrap()) {
+                self.advance();
+            }
+        }
+    }
+
+    fn identifier(&mut self) {
+        while let Some(c) = self.peek() {
+            println!("peek: {}", c);
+            println!("current, start: {}, {}", self.current, self.source.len());
+            if self.is_alphanumeric(c) {
+                self.advance();
+            } else {
+                break;
+            }
         }
 
+        let text = self
+            .source
+            .chars()
+            .skip(self.start)
+            .take(self.current)
+            .collect();
+        let token_type = self.keywords.get(&text);
+        self.add_token(token_type);
     }
 }
 
@@ -201,6 +247,9 @@ mod tests {
     fn test_scanner() {
         let mut scanner = Scanner::new("and");
         let tokens = scanner.scan_tokens();
-        assert_eq!(tokens.len(), 4);
+        println!("{:?}", tokens);
+        assert_eq!(tokens.len(), 2 as usize);
+        assert_eq!(tokens[0].clone().into_string(), "And and");
+        assert_eq!(tokens[1].clone().into_string(), "Eof ");
     }
 }
