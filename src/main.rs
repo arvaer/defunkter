@@ -17,8 +17,11 @@ fn run_prompt() {
     }
 }
 fn run(source: &str) {
-    let scanner = Scanner::new(source);
-    println!("{}", source);
+    let mut scanner = Scanner::new(source);
+    scanner.scan_tokens();
+    for token in scanner.tokens.iter() {
+        println!("{:?}", token);
+    }
 }
 
 fn main() {

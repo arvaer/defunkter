@@ -5,7 +5,7 @@ use tokens::*;
 
 pub struct Scanner {
     source: String,
-    tokens: Vec<Token>,
+    pub tokens: Vec<Token>,
     start: usize,
     current: usize,
     line: usize,
@@ -49,7 +49,11 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) {
-        let c: char = self.advance().unwrap();
+        let c: char = self.advance().unwrap_or_else(|| {
+            error(self.line, "Error: Unexpected end of file");
+            '\0'
+        });
+
         println!("Scanning token: {}", c);
         if self.is_digit(c) {
             self.number();
@@ -99,31 +103,7 @@ impl Scanner {
                     self.add_token(TokenType::Greater);
                 }
             }
-            '/' => {
-                if self.check_next('/') {
-                    println!("in slash");
-                    while self.peek().unwrap() != '\n' && !self.is_at_end() {
-                        let _ = self.advance();
-                    }
-                } else if self.check_next('*') {
-                    while let Some(c) = self.peek() {
-                        if c == '\n' {
-                            self.line += 1;
-                        }
-                        if c == '*' {
-                            if let Some(c) = self.peek() {
-                                if c == '\\' {
-                                    println!("we got to slash");
-                                    break;
-                                }
-                            }
-                        }
-                        self.advance();
-                    }
-                }else {
-                    self.add_token(TokenType::Slash)
-                }
-            },
+            '/' => self.slash(),
             ' ' | '\r' | '\t' => (),
             '\n' => self.line += 1,
             '"' => self.string(),
@@ -135,11 +115,37 @@ impl Scanner {
         }
     }
 
+    fn slash(&mut self) {
+        if self.check_next('/') {
+            while self.peek() != Some('\n') && !self.is_at_end() {
+                self.advance();
+            }
+        } else if self.check_next('*') {
+            while self.peek() != Some('*') && self.peek_next() != Some('/') && !self.is_at_end() {
+                if self.peek() == Some('\n') {
+                    self.line += 1;
+                }
+                self.advance();
+            }
+            if self.is_at_end() {
+                error(self.line, "Error: Unterminated block comment");
+            }
+            self.advance();
+            self.advance();
+        } else {
+            self.add_token(TokenType::Slash);
+        }
+    }
+
     fn check_next(&mut self, expected: char) -> bool {
         if self.current >= self.source.len() {
             return false;
         }
-        if self.source.chars().nth(self.current).unwrap() != expected {
+        if self.source.chars().nth(self.current).unwrap_or_else(|| {
+            error(self.line, "Error: Unexpected end of file");
+            '\0'
+        }) != expected
+        {
             return false;
         }
         self.current += 1;
@@ -166,10 +172,11 @@ impl Scanner {
     fn add_token_literal(&mut self, token_type: TokenType, literal: Option<String>) {
         let text = self
             .source
-            .chars()
+            .char_indices()
             .skip(self.start)
-            .take(self.current)
-            .collect();
+            .take(self.current - self.start)
+            .map(|(_, c)| c)
+            .collect::<String>();
 
         self.tokens
             .push(Token::new(token_type, text, literal, self.line));
@@ -177,7 +184,6 @@ impl Scanner {
 
     fn advance(&mut self) -> Option<char> {
         let c = self.source.chars().nth(self.current);
-        println!("Advancing: {}", c.unwrap());
         self.current += 1;
         return c;
     }
@@ -201,7 +207,7 @@ impl Scanner {
             .source
             .chars()
             .skip(self.start + 1)
-            .take(self.current - 1)
+            .take(self.current - 1 - self.start)
             .collect();
         self.add_token_literal(TokenType::String, Some(value))
     }
@@ -214,9 +220,20 @@ impl Scanner {
                 break;
             }
         }
-        if self.peek().unwrap() == '.' && self.is_digit(self.peek_next().unwrap()) {
+        if self.peek().unwrap_or_else(|| {
+            error(self.line, "Error: Unexpected end of file");
+            '\0'
+        }) == '.'
+            && self.is_digit(self.peek_next().unwrap_or_else(|| {
+                error(self.line, "Error: Unexpected end of file");
+                '\0'
+            }))
+        {
             self.advance();
-            while self.is_digit(self.peek().unwrap()) {
+            while self.is_digit(self.peek().unwrap_or_else(|| {
+                error(self.line, "Error: Unexpected end of file");
+                '\0'
+            })) {
                 self.advance();
             }
         }
@@ -224,10 +241,13 @@ impl Scanner {
             .source
             .chars()
             .skip(self.start)
-            .take(self.current)
+            .take(self.current - self.start)
             .collect::<String>()
             .parse()
-            .unwrap();
+            .unwrap_or_else(|_| {
+                error(self.line, "Error: Invalid number");
+                0.0
+            });
         self.add_token_literal(TokenType::Number, Some(value.to_string()));
     }
 
@@ -244,7 +264,7 @@ impl Scanner {
             .source
             .chars()
             .skip(self.start)
-            .take(self.current)
+            .take(self.current - self.start)
             .collect();
         let token_type = self.keywords.get(&text);
         self.add_token(token_type);
@@ -254,7 +274,6 @@ impl Scanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_token() {
         let token = Token::new(TokenType::And, "and".to_string(), None, 1);
@@ -270,16 +289,18 @@ mod tests {
         assert_eq!(tokens[0].clone().into_string(), "And and");
         assert_eq!(tokens[1].clone().into_string(), "Eof ");
     }
+
     #[test]
     fn test_string() {
-        let mut scanner = Scanner::new("and");
+        let mut scanner = Scanner::new(format!("{}and{}", '"', '"').as_str());
         let tokens = scanner.scan_tokens();
         println!("{:?}", tokens);
         assert_eq!(tokens.len(), 2 as usize);
         //this test is cursed
-        //assert_eq!(tokens[0].clone().into_string(), "String and");
+//        assert_eq!(tokens[0].clone().into_string(), "String and");
         assert_eq!(tokens[1].clone().into_string(), "Eof ");
     }
+
     #[test]
     fn test_number() {
         let mut scanner = Scanner::new("123");
@@ -307,6 +328,7 @@ mod tests {
         println!("{:?}", tokens);
         assert_eq!(tokens[0].clone().into_string(), "Identifier hello");
     }
+
     #[test]
     fn test_line_comment() {
         let block_comment = "hello // hello * hello  *//";
@@ -315,21 +337,16 @@ mod tests {
         println!("{:?}", tokens);
         assert_eq!(tokens[0].clone().into_string(), "Identifier hello");
     }
+
     #[test]
-    fn test_line_comment2() {
-        let block_comment = "hello // hello * hello  *//";
+    fn test_expression() {
+        let block_comment = "1 + 2";
         let mut scanner = Scanner::new(block_comment);
         let tokens = scanner.scan_tokens();
         println!("{:?}", tokens);
-        assert_eq!(tokens[0].clone().into_string(), "Identifier hello");
-    }
-    #[test]
-    fn test_line_comment3() {
-        let block_comment = "hello // hello * hello  *//";
-        let mut scanner = Scanner::new(block_comment);
-        let tokens = scanner.scan_tokens();
-        println!("{:?}", tokens);
-        assert_eq!(tokens[0].clone().into_string(), "Identifier hello");
+        assert_eq!(tokens[0].clone().into_string(), "Number 1");
+        assert_eq!(tokens[1].clone().into_string(), "Plus +");
+        assert_eq!(tokens[2].clone().into_string(), "Number 2");
     }
 
 }
