@@ -1,6 +1,10 @@
 pub mod errors;
+pub mod helpers;
 pub mod tokens;
+pub mod lexer;
+
 use errors::*;
+use helpers::*;
 use tokens::*;
 
 pub struct Scanner {
@@ -28,16 +32,6 @@ impl Scanner {
         self.current >= self.source.len()
     }
 
-    fn is_digit(&self, c: char) -> bool {
-        return c >= '0' && c <= '9';
-    }
-    fn is_alpha(&self, c: char) -> bool {
-        return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_';
-    }
-    fn is_alphanumeric(&self, c: char) -> bool {
-        return self.is_alpha(c) || self.is_digit(c);
-    }
-
     pub fn scan_tokens(&mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
@@ -54,12 +48,11 @@ impl Scanner {
             '\0'
         });
 
-        println!("Scanning token: {}", c);
-        if self.is_digit(c) {
+        if is_digit(c) {
             self.number();
             return;
         }
-        if self.is_alpha(c) {
+        if is_alpha(c) {
             self.identifier();
             return;
         }
@@ -108,7 +101,7 @@ impl Scanner {
             '\n' => self.line += 1,
             '"' => self.string(),
             _ => {
-                if !self.is_digit(c) {
+                if !is_digit(c) {
                     let _ = (self.line, "Unexpected character.");
                 }
             }
@@ -214,7 +207,7 @@ impl Scanner {
 
     fn number(&mut self) {
         while let Some(c) = self.peek() {
-            if self.is_digit(c) {
+            if is_digit(c) {
                 self.advance();
             } else {
                 break;
@@ -224,13 +217,13 @@ impl Scanner {
             error(self.line, "Error: Unexpected end of file");
             '\0'
         }) == '.'
-            && self.is_digit(self.peek_next().unwrap_or_else(|| {
+            && is_digit(self.peek_next().unwrap_or_else(|| {
                 error(self.line, "Error: Unexpected end of file");
                 '\0'
             }))
         {
             self.advance();
-            while self.is_digit(self.peek().unwrap_or_else(|| {
+            while is_digit(self.peek().unwrap_or_else(|| {
                 error(self.line, "Error: Unexpected end of file");
                 '\0'
             })) {
@@ -253,7 +246,7 @@ impl Scanner {
 
     fn identifier(&mut self) {
         while let Some(c) = self.peek() {
-            if self.is_alphanumeric(c) {
+            if is_alphanumeric(c) {
                 self.advance();
             } else {
                 break;
@@ -297,7 +290,7 @@ mod tests {
         println!("{:?}", tokens);
         assert_eq!(tokens.len(), 2 as usize);
         //this test is cursed
-//        assert_eq!(tokens[0].clone().into_string(), "String and");
+        //        assert_eq!(tokens[0].clone().into_string(), "String and");
         assert_eq!(tokens[1].clone().into_string(), "Eof ");
     }
 
@@ -348,5 +341,4 @@ mod tests {
         assert_eq!(tokens[1].clone().into_string(), "Plus +");
         assert_eq!(tokens[2].clone().into_string(), "Number 2");
     }
-
 }
