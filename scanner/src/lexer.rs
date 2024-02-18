@@ -90,8 +90,8 @@ mod tests {
     fn print_number_literal() {
         let expr = Expression::Literal(Literal::NUMBER(Token {
             token_type: TokenType::Number,
-            lexeme: "42".to_string(),
-            literal: None, // Adjust according to your Token struct
+            lexeme: String::from("42"),
+            literal: None,
             line: 1,
         }));
 
@@ -103,13 +103,13 @@ mod tests {
         let expr = Expression::Unary {
             operator: Token {
                 token_type: TokenType::Minus,
-                lexeme: "-".to_string(),
+                lexeme: String::from("-"),
                 literal: None,
                 line: 1,
             },
             value: Rc::new(Expression::Literal(Literal::NUMBER(Token {
                 token_type: TokenType::Number,
-                lexeme: "42".to_string(),
+                lexeme: String::from("42"),
                 literal: None,
                 line: 1,
             }))),
@@ -122,14 +122,14 @@ mod tests {
     fn print_binary_expression() {
         let left = Rc::new(Expression::Literal(Literal::NUMBER(Token {
             token_type: TokenType::Number,
-            lexeme: "1".to_string(),
+            lexeme: String::from("1"),
             literal: None,
             line: 1,
         })));
 
         let right = Rc::new(Expression::Literal(Literal::NUMBER(Token {
             token_type: TokenType::Number,
-            lexeme: "2".to_string(),
+            lexeme: String::from("2"),
             literal: None,
             line: 1,
         })));
@@ -138,7 +138,7 @@ mod tests {
             left,
             operator: Token {
                 token_type: TokenType::Plus,
-                lexeme: "+".to_string(),
+                lexeme: String::from("+"),
                 literal: None,
                 line: 1,
             },
@@ -153,7 +153,7 @@ mod tests {
         let expr = Expression::Grouping {
             interior: Rc::new(Expression::Literal(Literal::NUMBER(Token {
                 token_type: TokenType::Number,
-                lexeme: "42".to_string(),
+                lexeme: String::from("42"),
                 literal: None,
                 line: 1,
             })),
@@ -167,14 +167,14 @@ mod tests {
     fn print_nested_expression() {
         let left = Rc::new(Expression::Literal(Literal::NUMBER(Token {
             token_type: TokenType::Number,
-            lexeme: "1".to_string(),
+            lexeme: String::from("1"),
             literal: None,
             line: 1,
         })));
 
         let right = Rc::new(Expression::Literal(Literal::NUMBER(Token {
             token_type: TokenType::Number,
-            lexeme: "2".to_string(),
+            lexeme: String::from("2"),
             literal: None,
             line: 1,
         })));
@@ -183,7 +183,7 @@ mod tests {
             left,
             operator: Token {
                 token_type: TokenType::Plus,
-                lexeme: "+".to_string(),
+                lexeme: String::from("+"),
                 literal: None,
                 line: 1,
             },
@@ -193,7 +193,7 @@ mod tests {
         let outer_expr = Expression::Unary {
             operator: Token {
                 token_type: TokenType::Minus,
-                lexeme: "-".to_string(),
+                lexeme: String::from("-"),
                 literal: None,
                 line: 1,
             },
