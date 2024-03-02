@@ -2,6 +2,7 @@ pub mod errors;
 pub mod helpers;
 pub mod tokens;
 pub mod lexer;
+pub mod parser;
 
 use errors::*;
 use helpers::*;
