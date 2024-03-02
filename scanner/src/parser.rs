@@ -136,21 +136,33 @@ impl Parser {
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::String) => {
-                let string = self.advance().unwrap().clone();
+                let string = self.previous().unwrap().clone();
                 let new_literal = Literal::STRING(string);
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::Number) => {
-                let string = self.advance().unwrap().clone();
+                let string = self.previous().unwrap().clone();
                 let new_literal = Literal::NUMBER(string);
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::LeftParen) => {
-                todo!()
+                let base_expr = self.expression()?;
+                self.consume(TokenType::RightParen, "Expect ) after expression");
+                return Some(Expression::Grouping {
+                    interior: Rc::new(base_expr),
+                });
             }
             Some(TokenType::Eof) | None | _ => {
                 return None;
             }
+        }
+    }
+
+    fn consume(&mut self, check_on: TokenType, message: &str) {
+        if  self.check(check_on) {
+            let _ = self.advance();
+        } else {
+            token_error(self.peek().unwrap().clone(), message)
         }
     }
 
