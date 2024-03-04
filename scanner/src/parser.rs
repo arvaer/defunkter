@@ -298,6 +298,100 @@ mod tests {
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens);
         let expression = parser.parse();
+        assert!(matches!(expression, Expression::Binary {
+            left: _,
+            operator: _,
+            right: _,
+        }));
+    }
+
+    #[test]
+    fn test_unary() {
+        let input = "-1";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Unary {
+            operator: _,
+            value: _,
+        }));
+    }
+
+    #[test]
+    fn test_primary() {
+        let input = "1";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Literal(Literal::NUMBER(_))));
+    }
+
+    #[test]
+    fn test_factor() {
+        let input = "1 * 2";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Binary {
+            left: _,
+            operator: _,
+            right: _,
+        }));
+    }
+
+    #[test]
+    fn test_term() {
+        let input = "1 + 2";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Binary {
+            left: _,
+            operator: _,
+            right: _,
+        }));
+    }
+
+    #[test]
+    fn test_comparison() {
+        let input = "1 > 2";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Binary {
+            left: _,
+            operator: _,
+            right: _,
+        }));
+    }
+
+    #[test]
+    fn test_equality() {
+        let input = "1 == 2";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Binary {
+            left: _,
+            operator: _,
+            right: _,
+        }));
+    }
+
+    #[test]
+    fn test_expression() {
+        let input = "1";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Literal(Literal::NUMBER(_))));
     }
 
 
