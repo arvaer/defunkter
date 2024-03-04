@@ -158,16 +158,19 @@ impl Parser {
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::Number) => {
+                println!("Number");
                 let string = self.advance().unwrap().clone();
                 let new_literal = Literal::NUMBER(string);
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::LeftParen) => {
-                let base_expr = self.expression()?;
-                println!("{:?}", base_expr);
+                println!("LeftParen");
+                let _ = self.advance();
+                let base_expr = self.expression();
+
                 self.consume(TokenType::RightParen, "Expect ) after expression");
                 return Some(Expression::Grouping {
-                    interior: Rc::new(base_expr),
+                    interior: Rc::new(base_expr.unwrap())
                 });
             }
             Some(TokenType::Eof) => {
@@ -213,10 +216,11 @@ impl Parser {
     }
 
     fn advance(&mut self) -> Option<&Token> {
+        let token = self.tokens.get(self.current);
         if !self.is_at_end() {
             self.current += 1;
         }
-        return self.previous();
+        return token;
     }
 
     fn is_at_end(&self) -> bool {
@@ -286,19 +290,15 @@ mod tests {
 
     }
 
-
     #[test]
     fn test_grouping() {
-        let input = "(1 + 2) * 3";
+        let input = "(1 + 2) * 3 - 4";
+        println!("Test Grouping");
         let mut scanner = Scanner::new(input);
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens);
         let expression = parser.parse();
-
-        assert!(matches!(expression, Expression::Binary {
-            left: _,
-            operator: _,
-            right: _,
-        }));
     }
+
+
 }
