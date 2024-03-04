@@ -24,7 +24,10 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Expression {
-        let expression = self.expression().unwrap();
+        let expression = self.expression().unwrap_or_else(|| {
+            self.error(self.peek().unwrap().clone(), "Expect expression");
+            Expression::Literal(Literal::NUMBER(Token::new(TokenType::Number, "0".to_string(), Some("0".to_string()), 1)))
+        });
         return expression;
     }
 
@@ -133,7 +136,6 @@ impl Parser {
             Some(TokenType::Bang) | Some(TokenType::Minus) => {
                 let operator = self.advance()?.clone();
                 let unary = self.unary()?;
-                println!("{:?}", unary);
                 return Some(Expression::Unary {
                     operator,
                     value: Rc::new(unary),
@@ -158,13 +160,11 @@ impl Parser {
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::Number) => {
-                println!("Number");
                 let string = self.advance().unwrap().clone();
                 let new_literal = Literal::NUMBER(string);
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::LeftParen) => {
-                println!("LeftParen");
                 let _ = self.advance();
                 let base_expr = self.expression();
 
@@ -254,13 +254,18 @@ mod tests {
     use crate::{expression::*, Scanner};
     use crate::tokens::Token;
 
+    fn setup(input: &str) -> Expression {
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        return Parser::new(tokens).parse();
+    }
+
+
     #[test]
     fn test_parser() {
         let input = "1 + 2 * 3";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
 
         assert_eq!(expression, Expression::Binary {
             left: Rc::new(Expression::Literal(Literal::NUMBER(Token::new(TokenType::Number, "1".to_string(), Some("1".to_string()), 1)))),
@@ -278,10 +283,8 @@ mod tests {
     #[test]
     fn test_parser2() {
         let input = "1 + 2 * 3 - 4";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Binary {
             left: _,
             operator: _,
@@ -293,11 +296,8 @@ mod tests {
     #[test]
     fn test_grouping() {
         let input = "(1 + 2) * 3 - 4";
-        println!("Test Grouping");
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Binary {
             left: _,
             operator: _,
@@ -308,10 +308,8 @@ mod tests {
     #[test]
     fn test_unary() {
         let input = "-1";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Unary {
             operator: _,
             value: _,
@@ -321,20 +319,16 @@ mod tests {
     #[test]
     fn test_primary() {
         let input = "1";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Literal(Literal::NUMBER(_))));
     }
 
     #[test]
     fn test_factor() {
         let input = "1 * 2";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Binary {
             left: _,
             operator: _,
@@ -345,10 +339,8 @@ mod tests {
     #[test]
     fn test_term() {
         let input = "1 + 2";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Binary {
             left: _,
             operator: _,
@@ -359,10 +351,8 @@ mod tests {
     #[test]
     fn test_comparison() {
         let input = "1 > 2";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Binary {
             left: _,
             operator: _,
@@ -373,10 +363,8 @@ mod tests {
     #[test]
     fn test_equality() {
         let input = "1 == 2";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Binary {
             left: _,
             operator: _,
@@ -387,10 +375,24 @@ mod tests {
     #[test]
     fn test_expression() {
         let input = "1";
-        let mut scanner = Scanner::new(input);
-        let tokens = scanner.scan_tokens();
-        let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
+        let expression = setup(input);
+
+        assert!(matches!(expression, Expression::Literal(Literal::NUMBER(_))));
+    }
+
+    #[test]
+    fn test_error() {
+        let input = "1 +";
+        let expression = setup(input);
+
+        assert!(matches!(expression, Expression::Literal(Literal::NUMBER(_))));
+    }
+
+    #[test]
+    fn test_error2() {
+        let input = "1 + 2 +";
+        let expression = setup(input);
+
         assert!(matches!(expression, Expression::Literal(Literal::NUMBER(_))));
     }
 

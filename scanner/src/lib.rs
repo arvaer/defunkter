@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables, unused_mut)]
 pub mod errors;
 pub mod helpers;
 pub mod tokens;
