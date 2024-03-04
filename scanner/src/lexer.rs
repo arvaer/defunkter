@@ -1,6 +1,7 @@
 use crate::tokens::{Token, TokenType};
 use std::rc::Rc;
 
+#[derive(Clone, Debug)]
 pub enum Literal {
     NUMBER(Token),
     STRING(Token),
@@ -11,6 +12,7 @@ trait Print {
     fn print(&self) -> String;
 }
 
+#[derive(Clone, Debug)]
 pub enum Expression {
     Unary {
         operator: Token,

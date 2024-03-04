@@ -16,19 +16,36 @@ pub struct Parser {
 //comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 //term           → factor ( ( "-" | "+" ) factor )* ;
 //factor         → unary ( ( "/" | "*" ) unary )* ;
-//unary          → ( "!" | "-" ) unary
-//               | primary ;
-//primary        → NUMBER | STRING | "true" | "false" | "nil"
-//               | "(" expression ")" ;
+//unary          → ( "!" | "-" ) unary | primary ;
+//primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, current: 0 }
     }
 
+    pub fn parse(&mut self) -> Expression {
+        let expression = self.expression().unwrap();
+        return expression;
+    }
+
+
+    fn synchronize(&mut self) {
+        self.advance();
+        while !self.is_at_end() {
+            let prev_token_type = self.previous().map(|token| token.token_type.clone());
+            match prev_token_type {
+                Some(TokenType::Semicolon) => return,
+                _ => {}
+            }
+        }
+    }
+
     fn expression(&mut self) -> Option<Expression> {
         return self.equality();
     }
+
     fn equality(&mut self) -> Option<Expression> {
+        println!("equality");
         let mut base_expr = self.comparison()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -49,6 +66,7 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Option<Expression> {
+        println!("comparison");
         let mut base_expr = self.term()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -72,6 +90,7 @@ impl Parser {
     }
 
     fn term(&mut self) -> Option<Expression> {
+        println!("term");
         let mut base_expr = self.factor()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -92,6 +111,7 @@ impl Parser {
     }
 
     fn factor(&mut self) -> Option<Expression> {
+        println!("factor");
         let mut base_expr = self.unary()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -112,6 +132,7 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Option<Expression> {
+        println!("unary");
         let token_type = self.peek().map(|token| token.token_type.clone());
         match token_type {
             Some(TokenType::Bang) | Some(TokenType::Minus) => {
@@ -129,6 +150,7 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Option<Expression> {
+        println!("primary");
         let token_type = self.peek().map(|token| token.token_type.clone());
         match token_type {
             Some(TokenType::False) | Some(TokenType::True) | Some(TokenType::Nil) => {
@@ -136,12 +158,14 @@ impl Parser {
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::String) => {
-                let string = self.previous().unwrap().clone();
+                println!("string");
+                let string = self.advance().unwrap().clone();
                 let new_literal = Literal::STRING(string);
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::Number) => {
-                let string = self.previous().unwrap().clone();
+                println!("number");
+                let string = self.advance().unwrap().clone();
                 let new_literal = Literal::NUMBER(string);
                 return Some(Expression::Literal(new_literal));
             }
@@ -152,18 +176,26 @@ impl Parser {
                     interior: Rc::new(base_expr),
                 });
             }
-            Some(TokenType::Eof) | None | _ => {
+            Some(TokenType::Eof) => {
+                return None;
+            }
+            _ => {
+                self.error(self.peek().unwrap().clone(), "Expect expression");
                 return None;
             }
         }
     }
 
     fn consume(&mut self, check_on: TokenType, message: &str) {
-        if  self.check(check_on) {
+        if self.check(check_on) {
             let _ = self.advance();
         } else {
             token_error(self.peek().unwrap().clone(), message)
         }
+    }
+
+    fn error(&self, token: Token, message: &str) {
+        token_error(token, message);
     }
 
     fn check(&self, check_on: TokenType) -> bool {
@@ -215,5 +247,23 @@ impl Parser {
     fn previous(&self) -> Option<&Token> {
         let prev_token = self.tokens.get(self.current - 1);
         return prev_token;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{lexer::*, Scanner};
+    use crate::tokens::Token;
+
+    #[test]
+    fn test_parser() {
+        let input = "1 + 2 * 3";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        println!("{:?}", parser.tokens);
+        let expression = parser.parse();
+        println!("{:?}", expression);
     }
 }
