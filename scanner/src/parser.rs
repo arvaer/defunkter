@@ -1,8 +1,8 @@
-use crate::errors::token_error;
-use crate::lexer::Expression;
 use crate::{
-    lexer::Literal,
+    expression::{Expression, Literal},
     tokens::{Token, TokenType},
+    errors::token_error
+
 };
 use std::rc::Rc;
 
@@ -45,7 +45,6 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Option<Expression> {
-        println!("equality");
         let mut base_expr = self.comparison()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -66,7 +65,6 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Option<Expression> {
-        println!("comparison");
         let mut base_expr = self.term()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -90,7 +88,6 @@ impl Parser {
     }
 
     fn term(&mut self) -> Option<Expression> {
-        println!("term");
         let mut base_expr = self.factor()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -111,7 +108,6 @@ impl Parser {
     }
 
     fn factor(&mut self) -> Option<Expression> {
-        println!("factor");
         let mut base_expr = self.unary()?;
         while let Some(token_type) = self.peek().map(|token| token.token_type.clone()) {
             match token_type {
@@ -132,12 +128,12 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Option<Expression> {
-        println!("unary");
         let token_type = self.peek().map(|token| token.token_type.clone());
         match token_type {
             Some(TokenType::Bang) | Some(TokenType::Minus) => {
                 let operator = self.advance()?.clone();
                 let unary = self.unary()?;
+                println!("{:?}", unary);
                 return Some(Expression::Unary {
                     operator,
                     value: Rc::new(unary),
@@ -150,7 +146,6 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Option<Expression> {
-        println!("primary");
         let token_type = self.peek().map(|token| token.token_type.clone());
         match token_type {
             Some(TokenType::False) | Some(TokenType::True) | Some(TokenType::Nil) => {
@@ -158,19 +153,18 @@ impl Parser {
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::String) => {
-                println!("string");
                 let string = self.advance().unwrap().clone();
                 let new_literal = Literal::STRING(string);
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::Number) => {
-                println!("number");
                 let string = self.advance().unwrap().clone();
                 let new_literal = Literal::NUMBER(string);
                 return Some(Expression::Literal(new_literal));
             }
             Some(TokenType::LeftParen) => {
                 let base_expr = self.expression()?;
+                println!("{:?}", base_expr);
                 self.consume(TokenType::RightParen, "Expect ) after expression");
                 return Some(Expression::Grouping {
                     interior: Rc::new(base_expr),
@@ -190,7 +184,7 @@ impl Parser {
         if self.check(check_on) {
             let _ = self.advance();
         } else {
-            token_error(self.peek().unwrap().clone(), message)
+            self.error(self.peek().unwrap().clone(), message)
         }
     }
 
@@ -253,7 +247,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{lexer::*, Scanner};
+    use crate::{expression::*, Scanner};
     use crate::tokens::Token;
 
     #[test]
@@ -262,8 +256,49 @@ mod tests {
         let mut scanner = Scanner::new(input);
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens);
-        println!("{:?}", parser.tokens);
         let expression = parser.parse();
-        println!("{:?}", expression);
+
+        assert_eq!(expression, Expression::Binary {
+            left: Rc::new(Expression::Literal(Literal::NUMBER(Token::new(TokenType::Number, "1".to_string(), Some("1".to_string()), 1)))),
+            operator: Token::new(TokenType::Plus, "+".to_string(), None, 1),
+            right: Rc::new(Expression::Binary {
+                left: Rc::new(Expression::Literal(Literal::NUMBER(Token::new(TokenType::Number, "2".to_string(), Some("2".to_string()), 1)))),
+                operator: Token::new(TokenType::Star, "*".to_string(), None, 1),
+                right: Rc::new(Expression::Literal(Literal::NUMBER(Token::new(TokenType::Number, "3".to_string(), Some("3".to_string()), 1)))),
+            }),
+        });
+
+
+    }
+
+    #[test]
+    fn test_parser2() {
+        let input = "1 + 2 * 3 - 4";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+        assert!(matches!(expression, Expression::Binary {
+            left: _,
+            operator: _,
+            right: _,
+        }));
+
+    }
+
+
+    #[test]
+    fn test_grouping() {
+        let input = "(1 + 2) * 3";
+        let mut scanner = Scanner::new(input);
+        let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        let expression = parser.parse();
+
+        assert!(matches!(expression, Expression::Binary {
+            left: _,
+            operator: _,
+            right: _,
+        }));
     }
 }
